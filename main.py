@@ -44,11 +44,13 @@ with open(r'config.yaml') as file:
 
 
 def ica_results(_mask, _mse_reduction_threshold=0):
-    #_mask = "tmp/ica_mse_result*"
-    #_mse_reduction_threshold = -0.1
+    # _mask = "test2/ica_mse_result*"
+    # _mse_reduction_threshold = -0.1
     path_pattern = 'results/' + _mask
     ica_files = glob.glob(path_pattern)
-    
+    bases = []
+    mse_reduction_prcs = []
+    new_mses = []
     for f in ica_files:
         df = pd.read_csv(f, sep=';')
         model_columns = [x for x in list(df.columns) if x not in ('scenario', 'predictions_file')]
@@ -59,12 +61,31 @@ def ica_results(_mask, _mse_reduction_threshold=0):
         
         for i in range(number_of_components):
             mse_reduction_prc = (components[i,:] - base) / base
+       
             if np.mean(mse_reduction_prc) < _mse_reduction_threshold:
                 print(f, "c_"+str(i) , round(np.mean(mse_reduction_prc),3))
+                bases.append(base)
+                mse_reduction_prcs.append(mse_reduction_prc)
+                new_mses.append(base + base * mse_reduction_prc)
  
- 
+    res = pd.DataFrame({'Model': ["m" + str(k) for k in range(number_of_components)]})
+    
+    print(len(bases))
+    print(len(mse_reduction_prcs))
+    print(len(new_mses))
+
 
     
+    for i in range(len(bases)-4):
+        print(bases[i].shape)
+        print(mse_reduction_prcs[i].shape)
+        print(new_mses[i].shape)
+        res['base_'+str(i)] = bases[i][0]
+        res['imp_ratio'+str(i)] = np.round(mse_reduction_prcs[i][0],2)
+        res['new_mse'+str(i)] = np.round(new_mses[i][0])
+        
+    res.to_csv("tmp.csv", sep=";")
+        
 def divergence_results(_mask, _number_of_components):
     _mask = "test2_divs4/div_result*"
     _number_of_components = 20
@@ -161,9 +182,9 @@ def divergence_results(_mask, _number_of_components):
     
             
 def compute_ica_iterator(_mask, _dest_folder):
-    #_mask = "models_predictions*"
-    path_pattern = 'results/' + _mask
-    prediction_files = glob.glob(path_pattern)
+    #_mask = "results/model_predictions/models_predictions*"
+   
+    prediction_files = glob.glob(_mask)
     i = 0
     curr_date = datetime.now().strftime("%Y%m%d_%H%M")
     for f in prediction_files:
@@ -175,11 +196,11 @@ def compute_ica_iterator(_mask, _dest_folder):
         res_ica.to_csv(_dest_folder+ "/ica_detail_result_" + str(i+1) + "_"+ curr_date + ".csv", mode='w', header=True, index=False, sep=";")
 
 def compute_divergence_iterator(_mask, _dest_folder, _number_of_components):
-    # _mask = "test2/ica_detail*"
-    logger.info("divergence compute start for mask " + _mask)
+    # _mask = "results/test2/ica_detail*"
     
-    path_pattern = 'results/' + _mask
-    list_files = glob.glob(path_pattern)
+    logger.info("divergence compute start for mask " + _mask)
+
+    list_files = glob.glob(_mask )
     i = 0
     curr_date = datetime.now().strftime("%Y%m%d_%H%M")
     for f in list_files:
@@ -195,6 +216,8 @@ def compute_divergence(_filename, _number_of_components):
     
     # _filename = "results/test/ica_detail_result_28_20240304_1143.csv"
     # _number_of_components = 20
+    
+    
     df = pd.read_csv(_filename, sep=';')
     
     number_of_measures = 44
@@ -209,12 +232,6 @@ def compute_divergence(_filename, _number_of_components):
     mses = m.compute_mse(_number_of_components, y_actual, model_results, ica_model_results)
 
     k = 0
- 
-    xx = list(components_results.T)
-    yy = ["c_" + str(k) for k in range(_number_of_components)]
-    v.plot_dist_ica(xx, yy)
-    
-    
     for b in [0, 1, 2, 3]:
         for r in [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]:
             for i in range(_number_of_components):
@@ -239,7 +256,7 @@ def compute_divergence(_filename, _number_of_components):
     return res
     
 
-def training_loop():
+def model_training_loop(_dest):
     
     logger.info("starting... epochs: " + str(EPOCHS))
      
@@ -256,13 +273,13 @@ def training_loop():
         res_preds, res_summary = m.train_models(X_train, y_train)
     
         curr_date = datetime.now().strftime("%Y%m%d_%H%M")
-        predictions_file = "models_predictions_" + str(i+1) + "_" + curr_date + ".csv"
-        res_preds.to_csv("results/" + predictions_file, mode='w', header=True, index=False, sep=";")
-        res_summary.to_csv("results/models_summary_" + str(i+1) + "_" + curr_date + ".csv", mode='w', header=True, index=False, sep=";")
+        predictions_file = _dest + "/models_predictions_" + str(i+1) + "_" + curr_date + ".csv"
+        res_preds.to_csv(predictions_file, mode='w', header=True, index=False, sep=";")
+        res_summary.to_csv(_dest + "/models_summary_" + str(i+1) + "_" + curr_date + ".csv", mode='w', header=True, index=False, sep=";")
         
-        res_mse, res_ica = m.compute_ica('results/' + predictions_file)
-        res_mse.to_csv("results/ica_mse_result_" + str(i+1) + "_"+ curr_date + ".csv", mode='w', header=True, index=False, sep=";")
-        res_ica.to_csv("results/ica_detail_result_" + str(i+1) + "_"+ curr_date + ".csv", mode='w', header=True, index=False, sep=";")
+        res_mse, res_ica = m.compute_ica(predictions_file)
+        res_mse.to_csv(_dest + "/ica_mse_result_" + str(i+1) + "_"+ curr_date + ".csv", mode='w', header=True, index=False, sep=";")
+        res_ica.to_csv(_dest + "/ica_detail_result_" + str(i+1) + "_"+ curr_date + ".csv", mode='w', header=True, index=False, sep=";")
     
     
         logger.info("done... iteration: " + str(i+1) + "/" + str(ITERATIONS))
@@ -276,12 +293,12 @@ def training_loop():
 # importlib.reload(work.data)
 # importlib.reload(work.visualize)
 
-#training_loop()
+#model_training_loop("results/model_predictions")
 
-#compute_ica_iterator(model_predictions/models_predictions*", "results/test2/")
-compute_divergence_iterator("test2/ica_detail*", "results/test2_divs5/", 20)
+compute_ica_iterator("results/model_predictions/models_predictions*", "results/test2/")
+compute_divergence_iterator("results/test2/ica_detail*", "results/test2_divs5/", 20)
 
-#ica_results("test2/ica_mse_result*", -0.1)
+ica_results("test2/ica_mse_result*", -0.1)
 #v.plot_heat_map_ica('results/test2\ica_mse_result_40_20240304_2210.csv', 'plots/heat6.png')
     
 

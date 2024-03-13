@@ -82,17 +82,16 @@ def compute_J(_y, _beta, _gausian_ratio, _cauchy_ratio=0):
 
     n = len(_y)
     b_gausian = _gausian_ratio;
-    b_uniform = 1 - _gausian_ratio
-    b_cauchy = _cauchy_ratio; #mała waga 0.01
-    
-    # _y - komponenty (normalizowane?)
+    b_uniform = 1 - _gausian_ratio - _cauchy_ratio
+    b_cauchy = _cauchy_ratio; 
+
 
     gausian_part =  b_gausian * np.log(compute_D(_y, gausian(n), _beta) / compute_D(gausian(n), _y, _beta))
     uniform_part = b_uniform * np.log(compute_D(_y, uniform(n), _beta) / compute_D(uniform(n), _y, _beta))
     cauchy_part = b_cauchy * np.log(compute_D(_y, cauchy(n), _beta) / compute_D(cauchy(n), _y, _beta))
 
-    #res = pow(pow(gausian_part,2) + pow(uniform_part,2) + pow(cauchy_part,2), 0.5)
-    res =  min(gausian_part,uniform_part, cauchy_part)
+    res = pow(pow(gausian_part,2) + pow(uniform_part,2) + pow(cauchy_part,2), 0.5)
+    #res =  min(gausian_part,uniform_part, cauchy_part)
     return res
     
     
